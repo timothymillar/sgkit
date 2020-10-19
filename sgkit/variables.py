@@ -169,6 +169,20 @@ call_genotype_mask, call_genotype_mask_spec = SgkitVariables.register_variable(
     ArrayLikeSpec("call_genotype_mask", kind="b", ndim=3)
 )
 """TODO"""
+call_genotype_complete, call_genotype_complete_spec = SgkitVariables.register_variable(
+    ArrayLikeSpec("call_genotype_complete", kind="i", ndim=3)
+)
+"""
+Call genotypes in which partial genotype calls are replaced with
+compleately missing genotype calls.
+"""
+(
+    call_genotype_complete_mask,
+    call_genotype_complete_mask_spec,
+) = SgkitVariables.register_variable(
+    ArrayLikeSpec("call_genotype_complete_mask", kind="b", ndim=3)
+)
+"""TODO"""
 call_genotype_phased, call_genotype_phased_spec = SgkitVariables.register_variable(
     ArrayLikeSpec("call_genotype_phased", kind="b", ndim=2)
 )

@@ -8,6 +8,7 @@ from .model import (  # noqa: F401
     create_genotype_call_dataset,
     create_genotype_dosage_dataset,
 )
+from .preprocessing import filter_partial_calls
 from .stats.aggregation import count_call_alleles, count_variant_alleles, variant_stats
 from .stats.association import gwas_linear_regression
 from .stats.hwe import hardy_weinberg_test
@@ -26,6 +27,7 @@ __all__ = [
     "count_call_alleles",
     "create_genotype_dosage_dataset",
     "display_genotypes",
+    "filter_partial_calls",
     "gwas_linear_regression",
     "read_vcfzarr",
     "regenie",
