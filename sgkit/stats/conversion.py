@@ -1,11 +1,132 @@
 import dask.array as da
 import numpy as np
-from numba import guvectorize
+from numba import guvectorize, vectorize
 from xarray import Dataset
 
 from sgkit import variables
 from sgkit.typing import ArrayLike
 from sgkit.utils import conditional_merge_datasets, create_dataset
+
+
+@vectorize("int64(int64, int64)", nopython=True, cache=True)  # type: ignore
+def greatest_common_denominatior(x: int, y: int) -> int:  # pragma: no cover
+    while y != 0:
+        t = x % y
+        x = y
+        y = t
+    return x
+
+
+@vectorize("int64(int64, int64)", nopython=True, cache=True)  # type: ignore
+def comb(n: int, k: int) -> int:  # pragma: no cover
+    if k > n:
+        return 0
+    r = 1
+    for d in range(1, k + 1):
+        gcd = greatest_common_denominatior(r, d)
+        r //= gcd
+        r *= n
+        r //= d // gcd
+        n -= 1
+    return r
+
+
+@vectorize("int64(int64, int64)", nopython=True, cache=True)  # type: ignore
+def comb_with_replacement(n: int, k: int) -> int:  # pragma: no cover
+    n = n + k - 1
+    return comb(n, k)
+
+
+@guvectorize(  # type: ignore
+    [
+        "void(int8[:], int64[:])",
+        "void(int16[:], int64[:])",
+        "void(int32[:], int64[:])",
+        "void(int64[:], int64[:])",
+    ],
+    "(k)->()",
+    nopython=True,
+    cache=True,
+)
+def genotype_as_index(g: ArrayLike, out: ArrayLike) -> None:  # pragma: no cover
+    """Convert genotypes to the index of their array position
+    following the VCF specification for fields of length G.
+
+    Parameters
+    ----------
+    g
+        Genotype call of shape (ploidy,) containing alleles encoded as
+        type `int` with values of -1 indicating a missing allele and
+        values of -2 indicating non alleles.
+
+    Returns
+    -------
+    i
+        Index of genotype following the sort order described in the
+        VCF spec.
+    """
+    out[0] = 0
+    for i in range(len(g)):
+        a = g[i]
+        if a >= 0:
+            out[0] += comb_with_replacement(a, i + 1)
+        elif a == -1:
+            raise ValueError("Partial genotypes cannot be converted to an index.")
+
+
+@guvectorize(  # type: ignore
+    [
+        "void(int8, int8, int8[:], int8[:])",
+        "void(int16, int16, int8[:], int8[:])",
+        "void(int32, int32, int8[:], int8[:])",
+        "void(int64, int64, int8[:], int8[:])",
+    ],
+    "(),(),(k)->(k)",
+    nopython=True,
+    cache=True,
+)
+def index_as_genotype(
+    i: int, k: int, _: ArrayLike, out: ArrayLike
+) -> None:  # pragma: no cover
+    """Convert the index of a genotype sort position to the
+    genotype call indicated by that index following the VCF
+    specification for fields of length G.
+
+    Parameters
+    ----------
+    i
+        Index of genotype following the sort order described in the
+        VCF spec.
+    k
+        Ploidy of the genotype call.
+    _
+        Dummy variable of type `uint8` and shape (ploidy,) used to define
+        the size of the resulting array.
+        Parameter k may be smaller than the length of this array in the
+        case of mixed ploidy data.
+
+    Returns
+    -------
+    g
+        Genotype call of shape (ploidy,) containing alleles encoded as
+        type `int` with values of -1 indicating a missing allele and
+        values of -2 indicating non alleles.
+    """
+    remainder = i
+    out[:] = -2
+    for i in range(k):
+        # find allele n for position k
+        p = k - i
+        n = -1
+        new = 0
+        prev = 0
+        while new <= remainder:
+            n += 1
+            prev = new
+            new = comb_with_replacement(n, p)
+        n -= 1
+        remainder -= prev
+        out[p - 1] = n
 
 
 @guvectorize(  # type: ignore
