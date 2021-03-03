@@ -9,7 +9,7 @@ from sgkit.utils import conditional_merge_datasets, create_dataset
 
 
 @vectorize("int64(int64, int64)", nopython=True, cache=True)  # type: ignore
-def greatest_common_denominatior(x: int, y: int) -> int:  # pragma: no cover
+def _greatest_common_denominatior(x: int, y: int) -> int:  # pragma: no cover
     while y != 0:
         t = x % y
         x = y
@@ -18,12 +18,12 @@ def greatest_common_denominatior(x: int, y: int) -> int:  # pragma: no cover
 
 
 @vectorize("int64(int64, int64)", nopython=True, cache=True)  # type: ignore
-def comb(n: int, k: int) -> int:  # pragma: no cover
+def _comb(n: int, k: int) -> int:  # pragma: no cover
     if k > n:
         return 0
     r = 1
     for d in range(1, k + 1):
-        gcd = greatest_common_denominatior(r, d)
+        gcd = _greatest_common_denominatior(r, d)
         r //= gcd
         r *= n
         r //= d // gcd
@@ -32,9 +32,9 @@ def comb(n: int, k: int) -> int:  # pragma: no cover
 
 
 @vectorize("int64(int64, int64)", nopython=True, cache=True)  # type: ignore
-def comb_with_replacement(n: int, k: int) -> int:  # pragma: no cover
+def _comb_with_replacement(n: int, k: int) -> int:  # pragma: no cover
     n = n + k - 1
-    return comb(n, k)
+    return _comb(n, k)
 
 
 @guvectorize(  # type: ignore
@@ -48,7 +48,7 @@ def comb_with_replacement(n: int, k: int) -> int:  # pragma: no cover
     nopython=True,
     cache=True,
 )
-def genotype_as_index(g: ArrayLike, out: ArrayLike) -> None:  # pragma: no cover
+def _genotype_as_index(g: ArrayLike, out: ArrayLike) -> None:  # pragma: no cover
     """Convert genotypes to the index of their array position
     following the VCF specification for fields of length G.
 
@@ -69,7 +69,7 @@ def genotype_as_index(g: ArrayLike, out: ArrayLike) -> None:  # pragma: no cover
     for i in range(len(g)):
         a = g[i]
         if a >= 0:
-            out[0] += comb_with_replacement(a, i + 1)
+            out[0] += _comb_with_replacement(a, i + 1)
         elif a == -1:
             raise ValueError("Partial genotypes cannot be converted to an index.")
 
@@ -85,7 +85,7 @@ def genotype_as_index(g: ArrayLike, out: ArrayLike) -> None:  # pragma: no cover
     nopython=True,
     cache=True,
 )
-def index_as_genotype(
+def _index_as_genotype(
     i: int, k: int, _: ArrayLike, out: ArrayLike
 ) -> None:  # pragma: no cover
     """Convert the index of a genotype sort position to the
@@ -96,7 +96,8 @@ def index_as_genotype(
     ----------
     i
         Index of genotype following the sort order described in the
-        VCF spec.
+        VCF spec. An index less than 0 is invalid and will return an
+        uncalled genotype.
     k
         Ploidy of the genotype call.
     _
@@ -112,8 +113,12 @@ def index_as_genotype(
         type `int` with values of -1 indicating a missing allele and
         values of -2 indicating non alleles.
     """
-    remainder = i
     out[:] = -2
+    if i < 0:
+        # handle non-call
+        out[:k] = -1
+        return
+    remainder = i
     for i in range(k):
         # find allele n for position k
         p = k - i
@@ -123,7 +128,7 @@ def index_as_genotype(
         while new <= remainder:
             n += 1
             prev = new
-            new = comb_with_replacement(n, p)
+            new = _comb_with_replacement(n, p)
         n -= 1
         remainder -= prev
         out[p - 1] = n
