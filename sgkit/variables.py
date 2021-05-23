@@ -182,6 +182,20 @@ summary page. The rest of the docstring will appear on the variable
 specific page.
 """
 
+(
+    allelic_matching_sample_pairwise_beta,
+    allelic_matching_sample_pairwise_beta_spec,
+) = SgkitVariables.register_variable(
+    ArrayLikeSpec(
+        "allelic_matching_sample_pairwise_beta",
+        ndim=2,
+        kind="f",
+        __doc__="""
+Allelic matching kinship coefficient matrix.
+""",
+    )
+)
+
 call_allele_count, call_allele_count_spec = SgkitVariables.register_variable(
     ArrayLikeSpec(
         "call_allele_count",
