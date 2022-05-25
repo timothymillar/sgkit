@@ -649,3 +649,106 @@ def pedigree_kinship(
         }
     )
     return conditional_merge_datasets(ds, new_ds, merge)
+
+
+@njit
+def _position_sort_pair(position, pair):
+    x, y = pair
+    if position[x] < position[y]:
+        return (x, y)
+    else:
+        return (y, x)
+
+
+@njit
+def _sparse_pairs(parent):
+    n_samples = len(parent)
+    # topological order and position of each individual
+    order = topological_argsort(parent)
+    position = np.empty(n_samples, dtype=np.int64)
+    for i in range(n_samples):
+        position[order[i]] = i
+    # create a stack of jobs initialized with ordered pairs of parents
+    stack = parent[order]
+    idx = 0  # current position in stack
+    count = 0
+    pairs = dict()
+    while idx < n_samples:
+        assert idx >= 0
+        # pair of ordered samples
+        i, j = _position_sort_pair(position, stack[idx])
+        if (i, j) in pairs:
+            idx += 1
+        elif (i < 0) or (j < 0):
+            # unrelated
+            pairs[(i, j)] = count
+            count += 1
+            idx += 1
+        elif i == j:
+            # self kinship
+            p, q = _position_sort_pair(position, parent[i])
+            if (p < 0) or (q < 0):
+                # founder
+                pairs[(i, j)] = count
+                count += 1
+                idx += 1
+            else:
+                if (p, q) in pairs:
+                    pairs[(i, j)] = count
+                    count += 1
+                    idx += 1
+                else:
+                    idx -= 1
+                    stack[idx, 0] = p
+                    stack[idx, 1] = q
+        else:
+            # pair kinship
+            p, q = parent[j]  # parents of latter samples
+            ip = _position_sort_pair(position, (i, p))
+            iq = _position_sort_pair(position, (i, q))
+            if (p < 0) or (q < 0):
+                # founder
+                pairs[(i, j)] = count
+                count += 1
+                idx += 1
+            elif (ip in pairs) and (iq in pairs):
+                pairs[(i, j)] = count
+                count += 1
+                idx += 1
+            else:
+                if ip not in pairs:
+                    idx -= 1
+                    stack[idx, 0] = ip[0]
+                    stack[idx, 1] = ip[1]
+                if iq not in pairs:
+                    idx -= 1
+                    stack[idx, 0] = iq[0]
+                    stack[idx, 1] = iq[1]
+
+                elif ip in pairs:
+                    idx -= 1
+
+                if iq in pairs:
+                    pass
+    return pairs
+
+
+@njit
+def parent_kinship_diploid(parent):
+    pairs = _sparse_pairs(parent)
+    order_pair = {v: k for k, v in pairs.items()}
+    n_pairs = len(pairs)
+    sparse_kinship = dict()
+    sparse_kinship[-1, -1] = 0.0
+    for idx in range(1, n_pairs):
+        j, i = order_pair[idx]
+        if j == i:
+            _diploid_self_kinship(sparse_kinship, parent, i)
+        else:
+            _diploid_pair_kinship(sparse_kinship, parent, i, j)
+    n_samples = len(parent)
+    parent_kinship = np.empty(n_samples)
+    for i in range(n_samples):
+        p, q = parent[i, 0], parent[i, 1]
+        parent_kinship[i] = sparse_kinship[p, q]
+    return parent_kinship
