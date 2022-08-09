@@ -36,6 +36,7 @@ from .stats.pedigree import (
     additive_relationships,
     inverse_additive_relationships,
     parent_indices,
+    pedigree_inbreeding,
     pedigree_kinship,
 )
 from .stats.popgen import (
@@ -88,6 +89,7 @@ __all__ = [
     "ld_prune",
     "maximal_independent_set",
     "parent_indices",
+    "pedigree_inbreeding",
     "pedigree_kinship",
     "sample_stats",
     "variant_stats",
