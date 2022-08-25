@@ -207,7 +207,8 @@ def _insert_diploid_self_kinship(
     kinship: ArrayLike, parent: ArrayLike, i: int
 ) -> None:  # pragma: no cover
     # self kinship of i with parents p and q
-    p, q = parent[i, 0], parent[i, 1]
+    p = parent[i, 0]
+    q = parent[i, 1]
     if (p < 0) or (q < 0):  # founder or half-founder
         kinship[i, i] = 0.5
     else:  # non-founder
@@ -219,7 +220,8 @@ def _insert_diploid_pair_kinship(
     kinship: ArrayLike, parent: ArrayLike, i: int, j: int
 ) -> None:  # pragma: no cover
     # kinship of i with j where j < i and i has parents p and q
-    p, q = parent[i, 0], parent[i, 1]
+    p = parent[i, 0]
+    q = parent[i, 1]
     kinship_pj = kinship[p, j] if p >= 0 else 0
     kinship_qj = kinship[q, j] if q >= 0 else 0
     kinship_ij = (kinship_pj + kinship_qj) / 2
@@ -378,9 +380,12 @@ def _hamilton_kerr_inbreeding_half_founder(
 def _insert_hamilton_kerr_self_kinship(
     kinship: ArrayLike, parent: ArrayLike, tau: ArrayLike, lambda_: ArrayLike, i: int
 ) -> None:  # pragma: no cover
-    p, q = parent[i, 0], parent[i, 1]
-    tau_p, tau_q = tau[i, 0], tau[i, 1]
-    lambda_p, lambda_q = lambda_[i, 0], lambda_[i, 1]
+    p = parent[i, 0]
+    q = parent[i, 1]
+    tau_p = tau[i, 0]
+    tau_q = tau[i, 1]
+    lambda_p = lambda_[i, 0]
+    lambda_q = lambda_[i, 1]
     ploidy_i = tau_p + tau_q
     ploidy_p = tau[p, 0] + tau[p, 1]
     ploidy_q = tau[q, 0] + tau[q, 1]
@@ -436,8 +441,10 @@ def _hamilton_kerr_pair_kinship(
 def _insert_hamilton_kerr_pair_kinship(
     kinship: ArrayLike, parent: ArrayLike, tau: ArrayLike, i: int, j: int
 ) -> None:  # pragma: no cover
-    p, q = parent[i, 0], parent[i, 1]
-    tau_p, tau_q = tau[i, 0], tau[i, 1]
+    p = parent[i, 0]
+    q = parent[i, 1]
+    tau_p = tau[i, 0]
+    tau_q = tau[i, 1]
     kinship_pj = kinship[p, j] if p >= 0 else 0
     kinship_qj = kinship[q, j] if q >= 0 else 0
     kinship_ij = _hamilton_kerr_pair_kinship(tau_p, tau_q, kinship_pj, kinship_qj)
@@ -992,7 +999,8 @@ def inverse_additive_relationships(
 def _position_sort_pair(
     pair: ArrayLike, position: ArrayLike
 ) -> tuple:  # pragma: no cover
-    x, y = pair[0], pair[1]
+    x = pair[0]
+    y = pair[1]
     if x < 0:
         return (x, y)
     elif y < 0:
@@ -1040,8 +1048,10 @@ def inbreeding_Hamilton_Kerr(
     idx = 0
     while idx < n_stack:
         assert idx >= 0  # check for stack-overflow
+        # pair of ordered samples
         ij_key = _position_sort_pair(stack[idx], position)
-        i, j = ij_key  # pair of ordered samples
+        i = ij_key[0]
+        j = ij_key[1]
 
         if (i < 0) or (j < 0):
             # one or both unknown
@@ -1050,7 +1060,8 @@ def inbreeding_Hamilton_Kerr(
 
         elif i != j:
             # pair kinship
-            p, q = parent[j]  # parents of latter sample
+            p = parent[j, 0]  # parents of latter sample
+            q = parent[j, 1]
             # get required kinship dependencies
             if p < 0:
                 kinship_ip = 0.0
@@ -1177,7 +1188,8 @@ def inbreeding_Hamilton_Kerr(
     # calculate inbreeding from parental kinships
     inbreeding = np.empty(n_samples)
     for i in range(n_samples):
-        p, q = parent[i]
+        p = parent[i, 0]
+        q = parent[i, 1]
         if (p < 0) and (q < 0):  # founder
             inbreeding[i] = _hamilton_kerr_inbreeding_founder(
                 lambda_p=lambda_[i, 0],
