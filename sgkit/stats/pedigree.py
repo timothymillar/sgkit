@@ -1025,7 +1025,7 @@ def _hamilton_kerr_insert_sparse_pair_kinship(
     # compute kinship between samples i and j
     # sample i must come before j in topological order
     # return idx of next pair in stack
-    p = parent[j, 0]
+    p = parent[j, 0]  # parents of latter sample
     q = parent[j, 1]
     # get required kinship dependencies
     if p < 0:
@@ -1039,28 +1039,29 @@ def _hamilton_kerr_insert_sparse_pair_kinship(
         iq_key = _position_sort_pair((i, q), position)
         kinship_iq = kinship.get(iq_key, np.nan)
     # check for missing kinships and add them to stack
-    missing_dependencies = False
+    dependencies = True
     if np.isnan(kinship_ip):
-        missing_dependencies = True
+        dependencies = False
         idx -= 1
         stack[idx, 0] = i
         stack[idx, 1] = p
     if np.isnan(kinship_iq):
-        missing_dependencies = True
+        dependencies = False
         idx -= 1
         stack[idx, 0] = i
         stack[idx, 1] = q
-    # if any dependencies are missing return early
-    if missing_dependencies:
-        return idx
-    # calculate kinship from dependencies
-    kinship[(i, j)] = _hamilton_kerr_pair_kinship(
-        tau_p=tau[j, 0],
-        tau_q=tau[j, 1],
-        kinship_pj=kinship_ip,
-        kinship_qj=kinship_iq,
-    )
-    idx += 1
+    if dependencies:
+        # calculate kinship from dependencies
+        kinship[(i, j)] = _hamilton_kerr_pair_kinship(
+            tau_p=tau[j, 0],
+            tau_q=tau[j, 1],
+            kinship_pj=kinship_ip,
+            kinship_qj=kinship_iq,
+        )
+        idx += 1
+    else:
+        # dependencies added to stack
+        pass
     return idx
 
 
@@ -1078,10 +1079,11 @@ def _hamilton_kerr_insert_sparse_self_kinship(
 ) -> int:  # pragma: no cover
     # compute the self kinship of sample i
     # return idx of next pair in stack
+    # self kinship
     p = parent[i, 0]
     q = parent[i, 1]
-    # if i is a founder compute founder self kinship and return early
     if (p < 0) and (q < 0):
+        # founder kinship
         inbreeding = _hamilton_kerr_inbreeding_founder(
             lambda_p=lambda_[i, 0],
             lambda_q=lambda_[i, 1],
@@ -1089,71 +1091,73 @@ def _hamilton_kerr_insert_sparse_self_kinship(
         )
         kinship[(i, i)] = _inbreeding_as_self_kinship(inbreeding, ploidy[i])
         idx += 1
-        return idx
-    # non-founder
-    # get required kinship dependencies
-    pq_key = _position_sort_pair(parent[i], position)
-    kinship_pq = 0.0 if (p < 0) and (q < 0) else kinship.get(pq_key, np.nan)
-    kinship_pp = 0.0 if p < 0 else kinship.get((p, p), np.nan)
-    kinship_qq = 0.0 if q < 0 else kinship.get((q, q), np.nan)
-    # check for missing kinships and add them to stack
-    missing_dependencies = False
-    if np.isnan(kinship_pq):
-        missing_dependencies = True
-        idx -= 1
-        stack[idx, 0] = p
-        stack[idx, 1] = q
-    if np.isnan(kinship_pp):
-        missing_dependencies = True
-        idx -= 1
-        stack[idx, 0] = p
-        stack[idx, 1] = p
-    if np.isnan(kinship_qq):
-        missing_dependencies = True
-        idx -= 1
-        stack[idx, 0] = q
-        stack[idx, 1] = q
-    # if any dependencies are missing return early
-    if missing_dependencies:
-        return idx
-    # calculate kinship from dependencies
-    if (q < 0) and (tau[i, 1] > 0):
-        # half-founder (tau of 0 indicates clone of p)
-        inbreeding_i = _hamilton_kerr_inbreeding_half_founder(
-            tau_p=tau[i, 0],
-            lambda_p=lambda_[i, 0],
-            ploidy_p=ploidy[p],
-            kinship_pp=kinship_pp,
-            tau_q=tau[i, 1],
-            lambda_q=lambda_[i, 1],
-        )
-        kinship[(i, i)] = _inbreeding_as_self_kinship(inbreeding_i, ploidy[i])
-    elif (p < 0) and (tau[i, 0] > 0):
-        # half-founder (tau of 0 indicates clone of q)
-        inbreeding_i = _hamilton_kerr_inbreeding_half_founder(
-            tau_p=tau[i, 1],
-            lambda_p=lambda_[i, 1],
-            ploidy_p=ploidy[q],
-            kinship_pp=kinship_qq,
-            tau_q=tau[i, 0],
-            lambda_q=lambda_[i, 0],
-        )
-        kinship[(i, i)] = _inbreeding_as_self_kinship(inbreeding_i, ploidy[i])
     else:
-        # non-founder (including clones)
-        inbreeding_i = _hamilton_kerr_inbreeding_non_founder(
-            tau_p=tau[i, 0],
-            lambda_p=lambda_[i, 0],
-            ploidy_p=ploidy[p],
-            kinship_pp=kinship_pp,
-            tau_q=tau[i, 1],
-            lambda_q=lambda_[i, 1],
-            ploidy_q=ploidy[q],
-            kinship_qq=kinship_qq,
-            kinship_pq=kinship[pq_key],
-        )
-        kinship[(i, i)] = _inbreeding_as_self_kinship(inbreeding_i, ploidy[i])
-    idx += 1
+        # get required kinship dependencies
+        pq_key = _position_sort_pair(parent[i], position)
+        kinship_pq = 0.0 if (p < 0) and (q < 0) else kinship.get(pq_key, np.nan)
+        kinship_pp = 0.0 if p < 0 else kinship.get((p, p), np.nan)
+        kinship_qq = 0.0 if q < 0 else kinship.get((q, q), np.nan)
+        # check for missing kinships and add them to stack
+        dependencies = True
+        if np.isnan(kinship_pq):
+            dependencies = False
+            idx -= 1
+            stack[idx, 0] = p
+            stack[idx, 1] = q
+        if np.isnan(kinship_pp):
+            dependencies = False
+            idx -= 1
+            stack[idx, 0] = p
+            stack[idx, 1] = p
+        if np.isnan(kinship_qq):
+            dependencies = False
+            idx -= 1
+            stack[idx, 0] = q
+            stack[idx, 1] = q
+        if dependencies:
+            # calculate kinship from dependencies
+            if (q < 0) and (tau[i, 1] > 0):
+                # half-founder (tau of 0 indicates clone of p)
+                inbreeding_i = _hamilton_kerr_inbreeding_half_founder(
+                    tau_p=tau[i, 0],
+                    lambda_p=lambda_[i, 0],
+                    ploidy_p=ploidy[p],
+                    kinship_pp=kinship_pp,
+                    tau_q=tau[i, 1],
+                    lambda_q=lambda_[i, 1],
+                )
+                kinship[(i, i)] = _inbreeding_as_self_kinship(inbreeding_i, ploidy[i])
+                idx += 1
+            elif (p < 0) and (tau[i, 0] > 0):
+                # half-founder (tau of 0 indicates clone of q)
+                inbreeding_i = _hamilton_kerr_inbreeding_half_founder(
+                    tau_p=tau[i, 1],
+                    lambda_p=lambda_[i, 1],
+                    ploidy_p=ploidy[q],
+                    kinship_pp=kinship_qq,
+                    tau_q=tau[i, 0],
+                    lambda_q=lambda_[i, 0],
+                )
+                kinship[(i, i)] = _inbreeding_as_self_kinship(inbreeding_i, ploidy[i])
+                idx += 1
+            else:
+                # non-founder (including clones)
+                inbreeding_i = _hamilton_kerr_inbreeding_non_founder(
+                    tau_p=tau[i, 0],
+                    lambda_p=lambda_[i, 0],
+                    ploidy_p=ploidy[p],
+                    kinship_pp=kinship_pp,
+                    tau_q=tau[i, 1],
+                    lambda_q=lambda_[i, 1],
+                    ploidy_q=ploidy[q],
+                    kinship_qq=kinship_qq,
+                    kinship_pq=kinship[pq_key],
+                )
+                kinship[(i, i)] = _inbreeding_as_self_kinship(inbreeding_i, ploidy[i])
+                idx += 1
+        else:
+            # dependencies added to stack
+            pass
     return idx
 
 
@@ -1201,15 +1205,15 @@ def inbreeding_Hamilton_Kerr(
             # one or both unknown
             kinship[(i, j)] = 0.0
             idx += 1
-        elif i == j:
-            # self kinship
-            idx = _hamilton_kerr_insert_sparse_self_kinship(
-                parent, tau, lambda_, ploidy, position, kinship, stack, idx, i
-            )
-        else:
+        elif i != j:
             # pair kinship
             idx = _hamilton_kerr_insert_sparse_pair_kinship(
                 parent, tau, position, kinship, stack, idx, i, j
+            )
+        else:
+            # self kinship
+            idx = _hamilton_kerr_insert_sparse_self_kinship(
+                parent, tau, lambda_, ploidy, position, kinship, stack, idx, i
             )
 
     # calculate inbreeding of each sample
