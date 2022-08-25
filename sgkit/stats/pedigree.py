@@ -997,10 +997,8 @@ def inverse_additive_relationships(
 
 @numba_jit
 def _position_sort_pair(
-    pair: ArrayLike, position: ArrayLike
+    x: int, y: int, position: ArrayLike
 ) -> tuple:  # pragma: no cover
-    x = pair[0]
-    y = pair[1]
     if x < 0:
         return (x, y)
     elif y < 0:
@@ -1031,12 +1029,12 @@ def _hamilton_kerr_insert_sparse_pair_kinship(
     if p < 0:
         kinship_ip = 0.0
     else:
-        ip_key = _position_sort_pair((i, p), position)
+        ip_key = _position_sort_pair(i, p, position)
         kinship_ip = kinship.get(ip_key, np.nan)
     if q < 0:
         kinship_iq = 0.0
     else:
-        iq_key = _position_sort_pair((i, q), position)
+        iq_key = _position_sort_pair(i, q, position)
         kinship_iq = kinship.get(iq_key, np.nan)
     # check for missing kinships and add them to stack
     dependencies = True
@@ -1093,7 +1091,7 @@ def _hamilton_kerr_insert_sparse_self_kinship(
         idx += 1
     else:
         # get required kinship dependencies
-        pq_key = _position_sort_pair(parent[i], position)
+        pq_key = _position_sort_pair(parent[i, 0], parent[i, 1], position)
         kinship_pq = 0.0 if (p < 0) and (q < 0) else kinship.get(pq_key, np.nan)
         kinship_pp = 0.0 if p < 0 else kinship.get((p, p), np.nan)
         kinship_qq = 0.0 if q < 0 else kinship.get((q, q), np.nan)
@@ -1198,7 +1196,7 @@ def inbreeding_Hamilton_Kerr(
     while idx < n_stack:
         assert idx >= 0  # check for stack-overflow
         # pair of ordered samples
-        ij_key = _position_sort_pair(stack[idx], position)
+        ij_key = _position_sort_pair(stack[idx, 0], stack[idx, 1], position)
         i = ij_key[0]
         j = ij_key[1]
         if (i < 0) or (j < 0):
@@ -1246,7 +1244,7 @@ def inbreeding_Hamilton_Kerr(
                 lambda_q=lambda_[i, 0],
             )
         else:  # non-founder
-            pq_key = _position_sort_pair(parent[i], position)
+            pq_key = _position_sort_pair(parent[i, 0], parent[i, 1], position)
             inbreeding[i] = _hamilton_kerr_inbreeding_non_founder(
                 tau_p=tau[i, 0],
                 lambda_p=lambda_[i, 0],
