@@ -22,7 +22,10 @@ def _design_BLUP(trait, heritability, inverse_relationship, fixed=None):
     # note that we zero-out samples with missing phenotypes rather
     # than removing them from a given axis (as in commonly notation)
     # this avoids computing an additional dimension for phenotyped samples
-    alpha = (1 - heritability) / heritability
+    if heritability == 0.0:
+        alpha = 1
+    else:
+        alpha = (1 - heritability) / heritability
     not_nan = ~np.isnan(trait)
     Z = da.eye(n_samples) * not_nan[:, None]
     ZtZ = Z
@@ -53,8 +56,8 @@ def blup(
     ds: Dataset,
     *,
     traits: Hashable,
-    heritability: Hashable,
     inverse_relationship: Hashable,
+    heritability: Optional[Hashable] = None,
     fixed: Optional[Union[Hashable, Sequence[Hashable]]] = None,
     merge: bool = True,
     **kwargs: Optional[dict],
@@ -69,7 +72,10 @@ def blup(
     n_traits, n_samples = traits.shape
 
     # heritability
-    heritability = da.asarray(ds[heritability].data)
+    if heritability is None:
+        heritability = np.array([0.0])
+    else:
+        heritability = da.asarray(ds[heritability].data)
     if heritability.shape == ():
         heritability = heritability[None]
     assert heritability.shape == (n_traits,)
