@@ -91,6 +91,7 @@ Methods
 
    call_allele_frequencies
    cohort_allele_frequencies
+   convert_probability_to_call
    count_call_alleles
    count_cohort_alleles
    count_variant_alleles
@@ -135,6 +136,7 @@ Utilities
    filter_partial_calls
    infer_call_ploidy
    infer_sample_ploidy
+   infer_variant_allele_unique
    infer_variant_ploidy
    invert_relationship_matrix
    parent_indices
@@ -228,6 +230,7 @@ By convention, variable names are singular in sgkit. For example, ``genotype_cou
     variables.variant_allele_count_spec
     variables.variant_allele_frequency_spec
     variables.variant_allele_total_spec
+    variables.variant_allele_unique_spec
     variables.variant_genotype_count_spec
     variables.variant_linreg_beta_spec
     variables.variant_call_rate_spec

@@ -335,7 +335,7 @@ def test_convert_probability_to_call(chunks: int, dtype: str) -> None:
         ds[variables.call_genotype],
         np.array(
             [
-                [[0, 0], [1, 0], [1, 1]],
+                [[0, 0], [0, 1], [1, 1]],
                 [[-1, -1], [-1, -1], [-1, -1]],
                 [[-1, -1], [-1, -1], [-1, -1]],
             ],
@@ -383,7 +383,7 @@ def test_convert_probability_to_call__invalid_genotypes(n_genotypes: int) -> Non
     gp = np.ones((10, 5, n_genotypes))
     ds = simulate_dataset(gp)
     with pytest.raises(
-        NotImplementedError,
-        match="Hard call conversion only supported for diploid, biallelic genotypes",
+        ValueError,
+        match="The 'genotypes' dimension should have size 3 for ploidy 2 with 2 alleles",
     ):
         convert_probability_to_call(ds)

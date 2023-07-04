@@ -897,6 +897,36 @@ def infer_variant_ploidy(
     return conditional_merge_datasets(ds, variables.validate(new_ds), merge)
 
 
+def infer_variant_allele_unique(
+    ds: Dataset,
+    *,
+    variant_allele: Hashable = variables.variant_allele,
+    merge: bool = True,
+) -> Dataset:
+    """Infer the number of unique alleles at each variable locus.
+
+    The is calculated as the number of non fill values (i.e., the number
+    non-empty allele strings) at each locus.
+
+    Parameters
+    ----------
+    ds
+        Dataset containing variant alleles.
+    variant_allele
+        Input variable name holding variant_allele as defined by
+        :data:`sgkit.variables.variant_allele_spec`.
+        Must be present in ``ds``.
+
+    Returns
+    -------
+    A dataset containing :data:`sgkit.variables.variant_allele_unique_spec`.
+    """
+    variables.validate(ds, {variant_allele: variables.variant_allele_spec})
+    variant_allele_unique = (ds[variant_allele] != b"").sum(dim="alleles")
+    new_ds = create_dataset({variables.variant_allele_unique: variant_allele_unique})
+    return conditional_merge_datasets(ds, variables.validate(new_ds), merge)
+
+
 def infer_sample_ploidy(
     ds: Dataset,
     *,

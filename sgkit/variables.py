@@ -1139,6 +1139,15 @@ variant_allele_total, variant_allele_total_spec = SgkitVariables.register_variab
     )
 )
 
+variant_allele_unique, variant_allele_unique_spec = SgkitVariables.register_variable(
+    ArrayLikeSpec(
+        "variant_allele_unique",
+        dims=("variants",),
+        kind="i",
+        __doc__="""The number of unique alleles at each variant.""",
+    )
+)
+
 variant_linreg_beta, variant_linreg_beta_spec = SgkitVariables.register_variable(
     ArrayLikeSpec(
         "variant_linreg_beta",
