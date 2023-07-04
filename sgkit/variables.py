@@ -390,6 +390,41 @@ to call genotypes with missing alleles.
     )
 )
 
+(
+    call_genotype_log_likelihood,
+    call_genotype_log_likelihood_spec,
+) = SgkitVariables.register_variable(
+    ArrayLikeSpec(
+        "call_genotype_log_likelihood",
+        kind="f",
+        dims=("variants", "samples", "genotypes"),
+        __doc__="""Log-transformed genotype likelihoods.""",
+    )
+)
+
+(
+    call_genotype_log_prior,
+    call_genotype_log_prior_spec,
+) = SgkitVariables.register_variable(
+    ArrayLikeSpec(
+        "call_genotype_log_prior",
+        kind="f",
+        dims=("variants", "samples", "genotypes"),
+        __doc__="""Log-transformed genotype prior-probabilities.""",
+    )
+)
+
+(
+    call_genotype_log_probability,
+    call_genotype_log_probability_spec,
+) = SgkitVariables.register_variable(
+    ArrayLikeSpec(
+        "call_genotype_log_probability",
+        kind="f",
+        dims=("variants", "samples", "genotypes"),
+        __doc__="""Log-transformed genotype probabilities.""",
+    )
+)
 
 (
     call_genotype_probability,

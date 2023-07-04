@@ -419,7 +419,7 @@ def genotype_coords(
     K = np.empty(ploidy, smallest_numpy_int_dtype(n_alleles - 1))
     X = da.arange(n_genotypes, chunks=chunks)
     chunks = X.chunks + (ploidy,)
-    G = da.map_blocks(_index_as_genotype, X, K, new_axis=1, chunks=chunks)
+    G = da.map_blocks(_index_as_genotype, X, ploidy, K, new_axis=1, chunks=chunks)
     # allow enough room for all alleles and separators
     dtype = "|S{}".format(max_chars * ploidy + ploidy - 1)
     S = da.map_blocks(

@@ -194,15 +194,15 @@ def _count_sorted_genotypes(
 
 @numba_guvectorize(  # type: ignore
     [
-        "void(int64[:], int8[:], int8[:])",
-        "void(int64[:], int16[:], int16[:])",
-        "void(int64[:], int32[:], int32[:])",
-        "void(int64[:], int64[:], int64[:])",
+        "void(int64, int64, int8[:], int8[:])",
+        "void(int64, int64, int16[:], int16[:])",
+        "void(int64, int64, int32[:], int32[:])",
+        "void(int64, int64, int64[:], int64[:])",
     ],
-    "(),(k)->(k)",
+    "(),(),(k)->(k)",
 )
 def _index_as_genotype(
-    index: int, _: ArrayLike, out: ArrayLike
+    index: int, ploidy: int, _: ArrayLike, out: ArrayLike
 ) -> None:  # pragma: no cover
     """Convert the integer index of a genotype to a
     genotype call following the VCF specification
@@ -223,7 +223,10 @@ def _index_as_genotype(
     genotype
         Integer alleles of the genotype call.
     """
-    ploidy = len(out)
+    if index < 0:
+        out[:ploidy] = -1
+        out[ploidy:] = -2
+        return
     remainder = index
     for index in range(ploidy):
         # find allele n for position k
@@ -238,3 +241,4 @@ def _index_as_genotype(
         n -= 1
         remainder -= prev
         out[p - 1] = n
+    out[ploidy:] = -2
