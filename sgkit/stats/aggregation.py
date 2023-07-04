@@ -419,7 +419,7 @@ def genotype_coords(
     K = np.empty(ploidy, smallest_numpy_int_dtype(n_alleles - 1))
     X = da.arange(n_genotypes, chunks=chunks)
     chunks = X.chunks + (ploidy,)
-    G = da.map_blocks(_index_as_genotype, X, K, new_axis=1, chunks=chunks)
+    G = da.map_blocks(_index_as_genotype, X, ploidy, K, new_axis=1, chunks=chunks)
     # allow enough room for all alleles and separators
     dtype = "|S{}".format(max_chars * ploidy + ploidy - 1)
     S = da.map_blocks(
@@ -894,6 +894,38 @@ def infer_variant_ploidy(
         variant_ploidy = xr.full_like(ds[call_ploidy][:, 0, ...], ploidy)
 
     new_ds = create_dataset({variables.variant_ploidy: variant_ploidy})
+    return conditional_merge_datasets(ds, variables.validate(new_ds), merge)
+
+
+def infer_variant_allele_fill(
+    ds: Dataset,
+    *,
+    variant_allele: Hashable = variables.variant_allele,
+    merge: bool = True,
+) -> Dataset:
+    """Infer variant allele fill values following the VCF specification.
+
+    The VCF specification requires that all reference and alternate alleles
+    are non-empty strings. This method assumes that empty strings in the
+    :data:`sgkit.variables.variant_allele_fill_spec` variable correspond
+    to non alleles used to pad the array.
+
+    Parameters
+    ----------
+    ds
+        Dataset containing variant alleles.
+    variant_allele
+        Input variable name holding variant_allele as defined by
+        :data:`sgkit.variables.variant_allele_spec`.
+        Must be present in ``ds``.
+
+    Returns
+    -------
+    A dataset containing :data:`sgkit.variables.variant_allele_fill_spec`.
+    """
+    variables.validate(ds, {variant_allele: variables.variant_allele_spec})
+    variant_allele_fill = ds[variant_allele] == b""
+    new_ds = create_dataset({variables.variant_allele_fill: variant_allele_fill})
     return conditional_merge_datasets(ds, variables.validate(new_ds), merge)
 
 

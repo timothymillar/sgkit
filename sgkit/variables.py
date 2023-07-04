@@ -390,7 +390,6 @@ to call genotypes with missing alleles.
     )
 )
 
-
 (
     call_genotype_probability,
     call_genotype_probability_spec,
@@ -1079,6 +1078,18 @@ variant_allele_count, variant_allele_count_spec = SgkitVariables.register_variab
         __doc__="""
 Variant allele counts. With shape (variants, alleles) and values
 corresponding to the number of non-missing occurrences of each allele.
+""",
+    )
+)
+
+variant_allele_fill, variant_allele_fill_spec = SgkitVariables.register_variable(
+    ArrayLikeSpec(
+        "variant_allele_fill",
+        kind="b",
+        dims=("variants", "alleles"),
+        __doc__="""
+A flag for each variant indicating fill (non-allele) values where the number
+possible alleles is less than the size of the alleles dimension.
 """,
     )
 )

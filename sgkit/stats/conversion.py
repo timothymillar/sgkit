@@ -5,7 +5,13 @@ import numpy as np
 from xarray import Dataset
 
 from sgkit import variables
-from sgkit.utils import conditional_merge_datasets, create_dataset
+from sgkit.stats.aggregation import infer_variant_allele_fill
+from sgkit.utils import (
+    conditional_merge_datasets,
+    create_dataset,
+    define_variable_if_absent,
+    smallest_numpy_int_dtype,
+)
 
 
 def convert_call_to_index(
@@ -129,6 +135,9 @@ def convert_probability_to_call(
     ds: Dataset,
     call_genotype_probability: Hashable = variables.call_genotype_probability,
     threshold: float = 0.9,
+    mixed_ploidy: bool = False,
+    call_ploidy: Hashable = variables.call_ploidy,
+    variant_allele_fill: Hashable = variables.variant_allele_fill,
     merge: bool = True,
 ) -> Dataset:
     """
@@ -146,11 +155,33 @@ def convert_probability_to_call(
         probability in order for any calls to be made -- all values will be -1 (missing)
         otherwise. Setting this value to less than or equal to 0 disables any effect it has.
         Default value is 0.9.
+    mixed_ploidy
+        Specify if genotypes should be called with variable ploidy levels.
+    call_ploidy
+        Variable containing the ploidy level of each call_genotype as defined by
+        :data:`sgkit.variables.call_ploidy_spec`. This variable is only used when calling
+        a mixed-ploidy genotypes.
+    variant_allele_fill
+        Variable containing the number of unique alleles at each variant as defined by
+        :data:`sgkit.variables.variant_allele_fill_spec`. If absent, this variable will be
+        computed automatically from :data:`sgkit.variables.variant_allele_spec`. If it
+        cannot be automatically computed, then all variants are assumed to be biallelic.
     merge
         If True (the default), merge the input dataset and the computed
         output variables into a single dataset, otherwise return only
         the computed output variables.
         See :ref:`dataset_merge` for more details.
+
+    Warnings
+    --------
+    If the ploidy or alleles dimensions are not present in the dataset, then the called genotypes
+    will be diploid and/or biallelic respectively.
+
+    Raises
+    ------
+    ValueError
+        If the size of the 'genotypes' dimension does not match the expected value given the
+        (maximum) ploidy and number of unique alleles
 
     Returns
     -------
@@ -161,29 +192,75 @@ def convert_probability_to_call(
 
     - `call_genotype_mask` (variants, samples, ploidy): Mask for converted hard calls.
         Defined by :data:`sgkit.variables.call_genotype_mask_spec`.
+
+    - `call_genotype_index` (variants, samples): Index of hard calls within the 'genotypes' dimension.
+        Defined by :data:`sgkit.variables.call_genotype_index_spec`.
     """
-    from .conversion_numba_fns import _convert_probability_to_call
+
+    from .conversion_numba_fns import (
+        _convert_probabilities_to_index,
+        _index_as_genotype,
+        comb_with_replacement,
+    )
 
     if not (0 <= threshold <= 1):
         raise ValueError(f"Threshold must be float in [0, 1], not {threshold}.")
     variables.validate(
         ds, {call_genotype_probability: variables.call_genotype_probability_spec}
     )
-    if ds.dims["genotypes"] != 3:
-        raise NotImplementedError(
-            f"Hard call conversion only supported for diploid, biallelic genotypes; "
-            f"num genotypes in provided probabilities array = {ds.dims['genotypes']}."
-        )
     GP = da.asarray(ds[call_genotype_probability])
-    # Remove chunking in genotypes dimension, if present
-    if len(GP.chunks[2]) > 1:
-        GP = GP.rechunk((None, None, -1))
-    K = da.empty(2, dtype=np.uint8)
-    GT = _convert_probability_to_call(GP, K, threshold)
+    chunks = GP.chunks[0:2] + (-1,)
+    GP = GP.rechunk(chunks)
+    # get ploidy of each call and maximum ploidy of dataset
+    if mixed_ploidy:
+        variables.validate(ds, {call_ploidy: variables.call_ploidy_spec})
+        call_ploidy = da.array(ds[call_ploidy].data)
+        max_ploidy = ds.dims.get("ploidy") or call_ploidy.max().compute()
+    else:
+        call_ploidy = ds.dims.get("ploidy", 2)
+        max_ploidy = call_ploidy
+
+    # number of unique alleles at each locus
+    if (variant_allele_fill not in ds) and (variables.variant_allele not in ds):
+        # default for backwards compatibility
+        max_alleles = 2
+        u_alleles = 2
+    else:
+        ds = define_variable_if_absent(
+            ds,
+            variables.variant_allele_fill,
+            variant_allele_fill,
+            infer_variant_allele_fill,
+        )
+        variables.validate(
+            ds, {variant_allele_fill: variables.variant_allele_fill_spec}
+        )
+        max_alleles = ds.dims.get("alleles")
+        fill_alleles = da.array(ds[variant_allele_fill].data)
+        u_alleles = max_alleles - fill_alleles.sum(axis=-1, keepdims=True)
+    # expected size of genotypes dimension
+    max_genotypes = comb_with_replacement(max_alleles, max_ploidy)
+    _, _, max_probs = GP.shape
+    if max_probs != max_genotypes:
+        raise ValueError(
+            "The 'genotypes' dimension should have size {} for ploidy {} with {} alleles".format(
+                max_genotypes, max_ploidy, max_alleles
+            )
+        )
+    # number of unique genotypes at each locus
+    u_genotypes = comb_with_replacement(u_alleles, call_ploidy)
+    # convert to genotype via genotype index
+    X = _convert_probabilities_to_index(GP, u_genotypes, threshold)
+    dtype = smallest_numpy_int_dtype(max_alleles - 1)
+    K = np.empty(max_ploidy, dtype=dtype)
+    GT = _index_as_genotype(X, call_ploidy, K)
     new_ds = create_dataset(
         {
+            variables.call_genotype_index: (("variants", "samples"), X),
             variables.call_genotype: (("variants", "samples", "ploidy"), GT),
             variables.call_genotype_mask: (("variants", "samples", "ploidy"), GT < 0),
         }
     )
+    if mixed_ploidy:
+        new_ds[variables.call_genotype].attrs["mixed_ploidy"] = True
     return conditional_merge_datasets(ds, new_ds, merge)

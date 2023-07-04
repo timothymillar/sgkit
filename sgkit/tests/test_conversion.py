@@ -127,11 +127,37 @@ def test__sorted_genotype_index(genotype, expect):
     assert _sorted_genotype_index(genotype) == expect
 
 
+@pytest.mark.parametrize(
+    "index, ploidy, size, expect",
+    [
+        (0, 2, 2, [0, 0]),
+        (1, 2, 2, [0, 1]),
+        (2, 2, 2, [1, 1]),
+        (17, 2, 2, [2, 5]),
+        (-1, 2, 2, [-1, -1]),
+        (0, 2, 4, [0, 0, -2, -2]),
+        (1, 2, 4, [0, 1, -2, -2]),
+        (2, 2, 4, [1, 1, -2, -2]),
+        (17, 2, 4, [2, 5, -2, -2]),
+        (-1, 2, 4, [-1, -1, -2, -2]),
+        (0, 4, 5, [0, 0, 0, 0, -2]),
+        (1, 4, 5, [0, 0, 0, 1, -2]),
+        (2, 4, 5, [0, 0, 1, 1, -2]),
+        (77, 4, 5, [0, 2, 2, 5, -2]),
+        (-1, 4, 5, [-1, -1, -1, -1, -2]),
+    ],
+)
+def test__index_as_genotype(index, ploidy, size, expect):
+    dummy = np.empty(size, np.int8)
+    actual = _index_as_genotype(index, ploidy, dummy)
+    np.testing.assert_array_equal(actual, expect)
+
+
 @pytest.mark.parametrize("ploidy", [2, 3, 4, 5, 6])
 def test__index_as_genotype__round_trip(ploidy):
     indices = np.arange(1000)
     dummy = np.empty(ploidy, dtype=np.int8)
-    genotypes = _index_as_genotype(indices, dummy)
+    genotypes = _index_as_genotype(indices, ploidy, dummy)
     for i in range(len(genotypes)):
         assert _sorted_genotype_index(genotypes[i]) == i
 
@@ -139,7 +165,7 @@ def test__index_as_genotype__round_trip(ploidy):
 def test__index_as_genotype__dtype():
     for dtype in [np.int8, np.int16, np.int32, np.int64]:
         dummy = np.empty(2, dtype=dtype)
-        assert _index_as_genotype(1, dummy).dtype == dtype
+        assert _index_as_genotype(1, 2, dummy).dtype == dtype
 
 
 def test__sorted_genotype_index__raise_on_mixed_ploidy():
@@ -309,7 +335,7 @@ def test_convert_probability_to_call(chunks: int, dtype: str) -> None:
         ds[variables.call_genotype],
         np.array(
             [
-                [[0, 0], [1, 0], [1, 1]],
+                [[0, 0], [0, 1], [1, 1]],
                 [[-1, -1], [-1, -1], [-1, -1]],
                 [[-1, -1], [-1, -1], [-1, -1]],
             ],
@@ -357,7 +383,7 @@ def test_convert_probability_to_call__invalid_genotypes(n_genotypes: int) -> Non
     gp = np.ones((10, 5, n_genotypes))
     ds = simulate_dataset(gp)
     with pytest.raises(
-        NotImplementedError,
-        match="Hard call conversion only supported for diploid, biallelic genotypes",
+        ValueError,
+        match="The 'genotypes' dimension should have size 3 for ploidy 2 with 2 alleles",
     ):
         convert_probability_to_call(ds)
