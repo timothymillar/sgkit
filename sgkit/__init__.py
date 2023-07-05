@@ -28,6 +28,11 @@ from .stats.aggregation import (
     variant_stats,
 )
 from .stats.association import gwas_linear_regression, regenie_loco_regression
+from .stats.calling import (
+    genotype_log_likelihoods,
+    genotype_log_priors,
+    genotype_posteriors,
+)
 from .stats.conversion import convert_call_to_index, convert_probability_to_call
 from .stats.genee import genee
 from .stats.grm import (
@@ -92,6 +97,9 @@ __all__ = [
     "filter_partial_calls",
     "genee",
     "genomic_relationship",
+    "genotype_log_likelihoods",
+    "genotype_log_priors",
+    "genotype_posteriors",
     "gwas_linear_regression",
     "read_scikit_allel_vcfzarr",
     "regenie",

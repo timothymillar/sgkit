@@ -247,6 +247,18 @@ corresponding to the number of non-missing occurrences of each allele.
     )
 )
 
+call_allele_depth, call_allele_depth_spec = SgkitVariables.register_variable(
+    ArrayLikeSpec(
+        "call_allele_depth",
+        dims=("variants", "samples", "alleles"),
+        kind="u",
+        __doc__="""
+Allele depths. With shape (variants, samples, alleles) and values
+corresponding to the number of observations (i.e., 'depth') of each allele.
+""",
+    )
+)
+
 call_allele_frequency, call_allele_frequency_spec = SgkitVariables.register_variable(
     ArrayLikeSpec(
         "call_allele_frequency",
