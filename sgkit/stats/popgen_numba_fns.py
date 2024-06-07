@@ -182,3 +182,70 @@ def hash_array(x: ArrayLike, out: ArrayLike) -> None:  # pragma: no cover
     out[0] = 5381
     for i in range(x.shape[0]):
         out[0] = out[0] * 33 + x[i]
+
+
+@numba_guvectorize(  # type: ignore
+    [
+        "void(int64[:,:], int64[:], int64[:], float64[:,:], float64[:,:])",
+        "void(uint64[:,:], int64[:], int64[:], float64[:,:], float64[:,:])",
+        "void(float64[:,:], int64[:], int64[:], float64[:,:], float64[:,:])",
+    ],
+    "(s,a),(s),(c)->(c,c),(c,c)",
+)
+def cohort_mean_pairwise_ibs(
+    ac: ArrayLike,
+    cohort: ArrayLike,
+    _: ArrayLike,
+    numerator: ArrayLike,
+    denominator: ArrayLike,
+) -> None:  # pragma: no cover
+    n_sample, n_allele = ac.shape
+    numerator[:] = 0.0
+    denominator[:] = 0.0
+    # sum of pairwise ibs probabilities between cohorts
+    for i in range(n_sample):
+        c_i = cohort[i]
+        if c_i < 0:
+            continue
+        for j in range(i):
+            c_j = cohort[j]
+            if c_j < 0:
+                continue
+            match = 0
+            total_i = 0
+            total_j = 0
+            for a in range(n_allele):
+                a_i = ac[i, a]
+                a_j = ac[j, a]
+                match += a_i * a_j
+                total_i += a_i
+                total_j += a_j
+            combs = total_i * total_j
+            if combs > 0:
+                p = match / combs
+                numerator[c_i, c_j] += p
+                numerator[c_j, c_i] += p
+                denominator[c_i, c_j] += 1.0
+                denominator[c_j, c_i] += 1.0
+
+
+@numba_guvectorize(  # type: ignore
+    [
+        "void(float32[:,:], float32[:,:])",
+        "void(float64[:,:], float64[:,:])",
+    ],
+    "(c,c)->(c,c)",
+)
+def fst_Weir_Goudet(matching: ArrayLike, out: ArrayLike) -> None:  # pragma: no cover
+    out[:] = np.nan
+    n_cohort = len(matching)
+    for i in range(n_cohort):
+        for j in range(i):
+            matching_ii = matching[i, i]
+            matching_jj = matching[j, j]
+            matching_ij = matching[i, j]
+            num = (matching_ii + matching_jj) / 2.0 - matching_ij
+            denom = 1.0 - matching_ij
+            fst = num / denom
+            out[i, j] = fst
+            out[j, i] = fst

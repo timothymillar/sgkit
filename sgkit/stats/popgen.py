@@ -17,6 +17,7 @@ from sgkit.window import has_windows, window_statistic
 
 from .. import variables
 from .aggregation import (
+    count_call_alleles,
     count_cohort_alleles,
     count_variant_alleles,
     individual_heterozygosity,
@@ -357,6 +358,77 @@ def Fst(
     # assert_array_shape(fst, n_windows, n_cohorts, n_cohorts)
     new_ds = create_dataset(
         {variables.stat_Fst: (("windows", "cohorts_0", "cohorts_1"), fst)}
+    )
+    return conditional_merge_datasets(ds, new_ds, merge)
+
+
+def Weir_Goudet_Fst(
+    ds: Dataset,
+    *,
+    call_allele_count: Hashable = variables.call_allele_count,
+    sample_cohort: Hashable = variables.sample_cohort,
+    merge: bool = True,
+) -> Dataset:
+    from .popgen_numba_fns import cohort_mean_pairwise_ibs, fst_Weir_Goudet
+
+    ds = define_variable_if_absent(
+        ds,
+        variables.call_allele_count,
+        call_allele_count,
+        count_call_alleles,
+    )
+    variables.validate(
+        ds,
+        {
+            call_allele_count: variables.call_allele_count_spec,
+            sample_cohort: variables.sample_cohort_spec,
+        },
+    )
+    sample_cohort = ds[sample_cohort].values
+    dummy = np.empty(sample_cohort.max() + 1, int)
+    call_allele_count = ds[call_allele_count].data
+    # cohort matching coefficient
+    func = da.gufunc(
+        cohort_mean_pairwise_ibs,
+        signature=cohort_mean_pairwise_ibs.ufunc.signature,
+        output_dtypes=(float, float),
+    )
+    num, denom = func(call_allele_count, sample_cohort, dummy)
+    if has_windows(ds):
+        dim = "windows"
+        num = window_statistic(
+            num,
+            np.sum,
+            ds.window_start.values,
+            ds.window_stop.values,
+            dtype=np.float64,
+            axis=0,
+        )
+        denom = window_statistic(
+            denom,
+            np.sum,
+            ds.window_start.values,
+            ds.window_stop.values,
+            dtype=np.float64,
+            axis=0,
+        )
+    else:
+        dim = "variants"
+    matching = num / denom
+    func = da.gufunc(
+        fst_Weir_Goudet,
+        signature=fst_Weir_Goudet.ufunc.signature,
+        output_dtypes=float,
+    )
+    fst = func(matching)
+    new_ds = create_dataset(
+        {
+            variables.stat_Weir_Goudet_matching: (
+                (dim, "cohorts_0", "cohorts_1"),
+                matching,
+            ),
+            variables.stat_Weir_Goudet_Fst: ((dim, "cohorts_0", "cohorts_1"), fst),
+        },
     )
     return conditional_merge_datasets(ds, new_ds, merge)
 
