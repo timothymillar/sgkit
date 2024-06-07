@@ -1049,6 +1049,27 @@ stat_Weir_Goudet_beta, stat_Weir_Goudet_beta_spec = SgkitVariables.register_vari
     )
 )
 
+stat_Weir_Goudet_Fst, stat_Weir_Goudet_Fst_spec = SgkitVariables.register_variable(
+    ArrayLikeSpec(
+        "stat_Weir_Goudet_Fst",
+        dims=({"windows", "variants"}, "cohorts_0", "cohorts_1"),
+        kind="f",
+        __doc__="""Fixation index (Fst) between pairs of cohorts following Weir and Goudet.""",
+    )
+)
+
+(
+    stat_Weir_Goudet_matching,
+    stat_Weir_Goudet_matching_spec,
+) = SgkitVariables.register_variable(
+    ArrayLikeSpec(
+        "stat_Weir_Goudet_matching",
+        dims=({"windows", "variants"}, "cohorts_0", "cohorts_1"),
+        kind="f",
+        __doc__="""Mean of pairwise sample matching coefficients between pairs of cohorts.""",
+    )
+)
+
 traits, traits_spec = SgkitVariables.register_variable(
     ArrayLikeSpec(
         "traits",
